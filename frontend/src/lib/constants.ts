@@ -1,5 +1,6 @@
-export const WS_BASE_URL = import.meta.env.VITE_WS_URL || `ws://${window.location.hostname}:8000`;
-export const API_BASE_URL = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`;
+const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+export const WS_BASE_URL = import.meta.env.VITE_WS_URL || `${protocol}//${window.location.hostname}:8000`;
+export const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:8000`;
 export const MAX_PLAYERS = 8;
 export const MIN_PLAYERS = 3;
 export const DEFAULT_SETTINGS = {

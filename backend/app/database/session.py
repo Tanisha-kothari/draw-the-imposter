@@ -10,12 +10,15 @@ engine = create_async_engine(settings.DATABASE_URL, echo=False, pool_pre_ping=Tr
 
 @event.listens_for(engine.sync_engine, "connect")
 def _set_sqlite_pragma(dbapi_connection, connection_record):
-    """Enable foreign key enforcement for SQLite."""
-    import sqlite3
-    if isinstance(dbapi_connection, sqlite3.Connection):
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.close()
+    """Enable foreign key enforcement for SQLite (no-op for other databases)."""
+    try:
+        import sqlite3
+        if isinstance(dbapi_connection, sqlite3.Connection):
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
+    except (ImportError, TypeError):
+        pass
 
 
 async_session_factory = async_sessionmaker(
