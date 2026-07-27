@@ -44,25 +44,29 @@ class VoteService:
             await session.refresh(vote)
             return vote
 
-    async def get_vote_results(self, game_id: uuid.UUID) -> dict:
+    async def get_vote_results(self, game_id: uuid.UUID, round_number: int | None = None) -> dict:
         async with async_session_factory() as session:
             from sqlalchemy import select
 
-            result = await session.execute(
-                select(Vote).where(Vote.game_id == game_id)
-            )
+            query = select(Vote).where(Vote.game_id == game_id)
+            if round_number is not None:
+                query = query.where(Vote.round_number == round_number)
+            result = await session.execute(query)
             votes = result.scalars().all()
 
         target_counts: dict[str, int] = {}
+        voter_map: dict[str, str] = {}
         for vote in votes:
             pid = str(vote.target_id)
             target_counts[pid] = target_counts.get(pid, 0) + 1
+            voter_map[str(vote.voter_id)] = pid
 
         max_votes = max(target_counts.values()) if target_counts else 0
         most_voted = [pid for pid, count in target_counts.items() if count == max_votes]
 
         return {
             "vote_counts": target_counts,
+            "voter_map": voter_map,
             "total_votes": len(votes),
             "most_voted": most_voted,
             "max_votes": max_votes,

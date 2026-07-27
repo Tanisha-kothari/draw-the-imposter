@@ -25,6 +25,7 @@ export function useWebSocket(roomCode: string | null, playerId: string | null) {
   const setGameState = useGameStore((s) => s.setGameState);
   const setTimeRemaining = useGameStore((s) => s.setTimeRemaining);
   const setWordHint = useGameStore((s) => s.setWordHint);
+  const setWordCategory = useGameStore((s) => s.setWordCategory);
   const setIsImposter = useGameStore((s) => s.setIsImposter);
   const setHasVoted = useGameStore((s) => s.setHasVoted);
   const setDrawingSubmitted = useGameStore((s) => s.setDrawingSubmitted);
@@ -106,6 +107,7 @@ export function useWebSocket(roomCode: string | null, playerId: string | null) {
         break;
       case 'word_assigned':
         setWordHint(data.word_hint as string | null);
+        setWordCategory(data.category as string | null);
         setIsImposter(data.is_imposter as boolean);
         break;
       case 'round_start':

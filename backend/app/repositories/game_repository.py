@@ -50,12 +50,14 @@ class GameRepository:
             await session.refresh(game)
             return game
 
-    async def set_word(self, game_id: uuid.UUID, word: str) -> Game | None:
+    async def set_word(self, game_id: uuid.UUID, word: str, category: str | None = None) -> Game | None:
         async with async_session_factory() as session:
             game = await session.get(Game, game_id)
             if not game:
                 return None
             game.word = word
+            if category is not None:
+                game.category = category
             await session.commit()
             await session.refresh(game)
             return game
@@ -71,10 +73,21 @@ class GameRepository:
             await session.refresh(game)
             return game
 
-    async def create_round(self, game_id: uuid.UUID, round_number: int, word: str, phase: str) -> Round:
+    async def get_round(self, game_id: uuid.UUID, round_number: int) -> Round | None:
+        async with async_session_factory() as session:
+            result = await session.execute(
+                select(Round).where(
+                    Round.game_id == game_id,
+                    Round.round_number == round_number,
+                )
+            )
+            return result.scalar_one_or_none()
+
+    async def create_round(self, game_id: uuid.UUID, round_number: int, word: str, phase: str, category: str | None = None, imposter_id: uuid.UUID | None = None) -> Round:
         async with async_session_factory() as session:
             round_entry = Round(
                 game_id=game_id, round_number=round_number, word=word, phase=phase,
+                category=category, imposter_id=imposter_id,
                 started_at=datetime.now(timezone.utc),
             )
             session.add(round_entry)

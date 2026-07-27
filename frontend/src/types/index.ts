@@ -59,6 +59,13 @@ export interface VoteResult {
   vote_count: number;
 }
 
+export interface VoteDetail {
+  voter_id: string;
+  voter_nickname: string;
+  target_id: string;
+  target_nickname: string;
+}
+
 export interface RoundResult {
   round: number;
   word: string;
@@ -73,7 +80,10 @@ export interface GameResult {
   imposter_id: string;
   imposter_nickname: string;
   scores: { player_id: string; nickname: string; score: number }[];
-  round_results: RoundResult[];
+  category?: string;
+  word?: string;
+  vote_details?: VoteDetail[];
+  round_results?: RoundResult[];
 }
 
 // WebSocket message types

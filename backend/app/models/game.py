@@ -17,6 +17,7 @@ class Game(Base):
     current_round: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     current_phase: Mapped[str] = mapped_column(String(50), default="lobby", nullable=False)
     word: Mapped[str | None] = mapped_column(Text, nullable=True)
+    category: Mapped[str | None] = mapped_column(String(50), nullable=True)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 

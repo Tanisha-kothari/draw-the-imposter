@@ -25,6 +25,7 @@ interface GameStore {
   currentRound: number;
   totalRounds: number;
   wordHint: string | null;
+  wordCategory: string | null;
   timeRemaining: number;
   isImposter: boolean;
   hasVoted: boolean;
@@ -34,6 +35,7 @@ interface GameStore {
   setGameState: (state: Partial<GameStore>) => void;
   setTimeRemaining: (time: number) => void;
   setWordHint: (hint: string | null) => void;
+  setWordCategory: (category: string | null) => void;
   setIsImposter: (is: boolean) => void;
   setHasVoted: (voted: boolean) => void;
   setDrawingSubmitted: (submitted: boolean) => void;
@@ -83,6 +85,7 @@ const initialState = {
   currentRound: 0,
   totalRounds: 0,
   wordHint: null,
+  wordCategory: null,
   timeRemaining: 0,
   isImposter: false,
   hasVoted: false,
@@ -115,6 +118,7 @@ export const useGameStore = create<GameStore>((set) => ({
   setGameState: (state) => set(state),
   setTimeRemaining: (time) => set({ timeRemaining: time }),
   setWordHint: (hint) => set({ wordHint: hint }),
+  setWordCategory: (category) => set({ wordCategory: category }),
   setIsImposter: (is) => set({ isImposter: is }),
   setHasVoted: (voted) => set({ hasVoted: voted }),
   setDrawingSubmitted: (submitted) => set({ drawingSubmitted: submitted }),

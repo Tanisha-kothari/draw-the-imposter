@@ -41,16 +41,18 @@ class GameService:
 
         return updated
 
-    async def select_word(self, game: Game, category: str | None = None, difficulty: str = "medium") -> str:
+    async def select_word(self, game: Game, category: str | None = None, difficulty: str = "medium") -> tuple[str, str]:
         _word, _cat, _diff = word_bank.get_random_word(category or None, difficulty)
-        await self._game_repo.set_word(game.id, _word)
-        return _word
+        await self._game_repo.set_word(game.id, _word, _cat)
+        return _word, _cat
 
-    async def start_next_round(self, game: Game) -> Game:
+    async def start_next_round(self, game: Game, imposter_ids: list[uuid.UUID] | None = None) -> Game:
         next_round = game.current_round + 1
         word = game.word or ""
+        category = getattr(game, 'category', None) or ""
+        primary_imposter_id = imposter_ids[0] if imposter_ids else None
         await self._game_repo.update_round(game.id, next_round, word)
-        await self._game_repo.create_round(game.id, next_round, word, GamePhase.DRAWING.value)
+        await self._game_repo.create_round(game.id, next_round, word, GamePhase.DRAWING.value, category=category, imposter_id=primary_imposter_id)
         updated = await self._game_repo.update_phase(game.id, GamePhase.DRAWING.value)
         return updated or game
 

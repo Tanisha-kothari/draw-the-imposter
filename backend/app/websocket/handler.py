@@ -76,7 +76,6 @@ class MessageHandler:
                     "score": p.score,
                     "is_host": p.is_host,
                     "is_connected": p.is_connected,
-                    "is_imposter": p.is_imposter,
                 }
                 for p in players
             ],
@@ -226,9 +225,10 @@ class MessageHandler:
             raise ValueError("Need at least 2 players to start")
 
         game = await self._game_service.create_game(room)
-        await self._game_service.assign_roles(game, connected, room.num_imposters)
-        word = await self._game_service.select_word(game, room.word_category, room.difficulty)
-        game = await self._game_service.start_next_round(game)
+        updated_players = await self._game_service.assign_roles(game, connected, room.num_imposters)
+        word, category = await self._game_service.select_word(game, room.word_category, room.difficulty)
+        imposter_ids = [p.id for p in updated_players if p.is_imposter]
+        game = await self._game_service.start_next_round(game, imposter_ids)
 
         await self.manager.broadcast_to_room(
             room_code,
@@ -249,6 +249,7 @@ class MessageHandler:
                         "type": "word_assigned",
                         "data": {
                             "word_hint": None,
+                            "category": category,
                             "is_imposter": True,
                             "role": "imposter",
                             "message": "You are the Imposter. You do not know today's word. Try to blend in.",
@@ -262,6 +263,7 @@ class MessageHandler:
                         "type": "word_assigned",
                         "data": {
                             "word_hint": word,
+                            "category": category,
                             "is_imposter": False,
                             "role": "artist",
                         },
@@ -513,18 +515,46 @@ class MessageHandler:
             return
         logger.info("[PHASE] RESULTS — room=%s", room_code)
 
-        results = await self._vote_service.get_vote_results(game.id)
+        # Fetch the persisted round record for authoritative category, word, and imposter_id
+        round_record = await self._game_repo.get_round(fresh_game.id, fresh_game.current_round)
+        round_category = round_record.category if round_record else None
+        round_word = round_record.word if round_record else None
+        persisted_imposter_id = round_record.imposter_id if round_record else None
+
+        results = await self._vote_service.get_vote_results(fresh_game.id, round_number=fresh_game.current_round)
         logger.info("[RESULT] Vote results for %s: %s", room_code, results)
 
         game_result = await self._game_service.calculate_results(fresh_game)
         logger.info("[RESULT] Game result for %s: winner=%s", room_code, game_result.get("winner"))
 
         players = await self._player_repo.get_by_room(fresh_game.room_id)
-        imposter = next((p for p in players if p.is_imposter), None)
+
+        # Authoritative imposter identity: prefer the persisted round.imposter_id, fall back to player flag
+        if persisted_imposter_id:
+            imposter = next((p for p in players if p.id == persisted_imposter_id), None)
+        else:
+            imposter = next((p for p in players if p.is_imposter), None)
+        imposter_id_str = str(imposter.id) if imposter else ""
+        imposter_nickname_str = imposter.nickname if imposter else "Unknown"
+
         scores = [
             {"player_id": str(p.id), "nickname": p.nickname, "score": p.score}
             for p in players
         ]
+
+        # Build vote breakdown with player nicknames
+        vote_details = []
+        voter_map = results.get("voter_map", {})
+        for voter_id_str, target_id_str in voter_map.items():
+            voter = next((p for p in players if str(p.id) == voter_id_str), None)
+            target = next((p for p in players if str(p.id) == target_id_str), None)
+            if voter and target:
+                vote_details.append({
+                    "voter_id": voter_id_str,
+                    "voter_nickname": voter.nickname,
+                    "target_id": target_id_str,
+                    "target_nickname": target.nickname,
+                })
 
         await self._broadcast_game_state(
             room_code, fresh_game,
@@ -546,9 +576,12 @@ class MessageHandler:
                     "results": results,
                     "game_result": {
                         "winner": game_result.get("winner", "innocent"),
-                        "imposter_id": str(imposter.id) if imposter else "",
-                        "imposter_nickname": imposter.nickname if imposter else "Unknown",
+                        "imposter_id": imposter_id_str,
+                        "imposter_nickname": imposter_nickname_str,
                         "scores": scores,
+                        "category": round_category,
+                        "word": round_word,
+                        "vote_details": vote_details,
                     },
                     "round": fresh_game.current_round,
                 },
@@ -744,12 +777,13 @@ class MessageHandler:
         if not room:
             raise ValueError("Room not found")
 
-        word = await self._game_service.select_word(game, room.word_category, room.difficulty)
+        word, category = await self._game_service.select_word(game, room.word_category, room.difficulty)
 
         players_updated = await self._player_repo.get_by_room(room.id)
-        await self._game_service.assign_roles(game, players_updated, room.num_imposters)
+        updated_assigned = await self._game_service.assign_roles(game, players_updated, room.num_imposters)
+        imposter_ids = [p.id for p in updated_assigned if p.is_imposter]
 
-        game = await self._game_service.start_next_round(game)
+        game = await self._game_service.start_next_round(game, imposter_ids)
 
         turn_order = [str(p.id) for p in players_updated if p.is_connected]
         self._turn_order[room_code] = turn_order
@@ -779,6 +813,7 @@ class MessageHandler:
                         "type": "word_assigned",
                         "data": {
                             "word_hint": None,
+                            "category": category,
                             "is_imposter": True,
                             "role": "imposter",
                             "message": "You are the Imposter. You do not know today's word. Try to blend in.",
@@ -792,6 +827,7 @@ class MessageHandler:
                         "type": "word_assigned",
                         "data": {
                             "word_hint": word,
+                            "category": category,
                             "is_imposter": False,
                             "role": "artist",
                         },

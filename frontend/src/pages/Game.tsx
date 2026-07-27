@@ -19,6 +19,7 @@ export default function Game() {
   const currentRound = useGameStore((s) => s.currentRound);
   const totalRounds = useGameStore((s) => s.totalRounds);
   const wordHint = useGameStore((s) => s.wordHint);
+  const wordCategory = useGameStore((s) => s.wordCategory);
   const timeRemaining = useGameStore((s) => s.timeRemaining);
   const isImposter = useGameStore((s) => s.isImposter);
   const hasVoted = useGameStore((s) => s.hasVoted);
@@ -174,10 +175,20 @@ export default function Game() {
                     <div className="text-center">
                       <h2 className="text-2xl font-bold text-red-400">You are the Imposter!</h2>
                       <p className="text-gray-400 mt-1">Try to blend in and guess the word</p>
+                      {wordCategory && (
+                        <div className="mt-3 inline-block bg-gray-800 px-4 py-2 rounded-lg">
+                          <p className="text-xs text-gray-500">Category</p>
+                          <p className="text-lg font-bold text-yellow-400">{wordCategory}</p>
+                          <p className="text-sm text-gray-400 mt-1">Word: ???</p>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="text-center">
                       <h2 className="text-sm text-gray-400 mb-1">Draw this word:</h2>
+                      {wordCategory && (
+                        <p className="text-sm text-yellow-400 font-medium mb-1">Category: {wordCategory}</p>
+                      )}
                       <p className="text-3xl font-bold text-primary-400 tracking-wide">{wordHint}</p>
                     </div>
                   )}
@@ -284,9 +295,29 @@ export default function Game() {
                   <h2 className={`text-3xl font-bold mb-2 ${gameResult?.winner === 'imposter' ? 'text-red-400' : 'text-green-400'}`}>
                     {gameResult?.winner === 'imposter' ? 'Imposter Wins!' : 'Innocents Win!'}
                   </h2>
-                  <p className="text-gray-400">
-                    The imposter was <span className="font-bold text-white">{gameResult?.imposter_nickname}</span>
+                  <p className={`text-lg font-semibold ${gameResult?.winner === 'imposter' ? 'text-red-400' : 'text-green-400'}`}>
+                    {gameResult?.winner === 'imposter' ? '✘ Imposter Escaped' : '✔ Imposter Caught'}
                   </p>
+
+                  <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {gameResult?.category && (
+                      <div className="bg-gray-800/50 rounded-lg p-3">
+                        <p className="text-xs text-gray-500">Category</p>
+                        <p className="text-lg font-bold text-yellow-400">{gameResult.category}</p>
+                      </div>
+                    )}
+                    {gameResult?.word && (
+                      <div className="bg-gray-800/50 rounded-lg p-3">
+                        <p className="text-xs text-gray-500">Secret Word</p>
+                        <p className="text-lg font-bold text-primary-400">{gameResult.word}</p>
+                      </div>
+                    )}
+                    <div className="bg-gray-800/50 rounded-lg p-3">
+                      <p className="text-xs text-gray-500">Actual Imposter</p>
+                      <p className="text-lg font-bold text-red-400">{gameResult?.imposter_nickname}</p>
+                    </div>
+                  </div>
+
                   <div className="mt-4 flex justify-center">
                     <CanvasViewer
                       combinedStrokes={roundStrokes}
@@ -295,6 +326,21 @@ export default function Game() {
                     />
                   </div>
                 </div>
+
+                {gameResult?.vote_details && gameResult.vote_details.length > 0 && (
+                  <div className="card">
+                    <h3 className="text-lg font-semibold mb-3">Votes</h3>
+                    <div className="space-y-2">
+                      {gameResult.vote_details.map((v, i) => (
+                        <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-gray-800/50">
+                          <span>{v.voter_nickname}</span>
+                          <span className="text-gray-400 mx-2">→</span>
+                          <span className="font-medium">{v.target_nickname}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <div className="card">
                   <h3 className="text-lg font-semibold mb-3">Scoreboard</h3>
@@ -338,9 +384,31 @@ export default function Game() {
                   <h2 className={`text-3xl font-bold mb-2 ${gameResult?.winner === 'imposter' ? 'text-red-400' : 'text-green-400'}`}>
                     {gameResult?.winner === 'imposter' ? 'Imposter Wins!' : 'Innocents Win!'}
                   </h2>
+                  <p className={`text-lg font-semibold ${gameResult?.winner === 'imposter' ? 'text-red-400' : 'text-green-400'}`}>
+                    {gameResult?.winner === 'imposter' ? '✘ Imposter Escaped' : '✔ Imposter Caught'}
+                  </p>
                   <p className="text-gray-400">
                     The imposter was <span className="font-bold text-white">{gameResult?.imposter_nickname}</span>
                   </p>
+
+                  <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {gameResult?.category && (
+                      <div className="bg-gray-800/50 rounded-lg p-3">
+                        <p className="text-xs text-gray-500">Category</p>
+                        <p className="text-lg font-bold text-yellow-400">{gameResult.category}</p>
+                      </div>
+                    )}
+                    {gameResult?.word && (
+                      <div className="bg-gray-800/50 rounded-lg p-3">
+                        <p className="text-xs text-gray-500">Secret Word</p>
+                        <p className="text-lg font-bold text-primary-400">{gameResult.word}</p>
+                      </div>
+                    )}
+                    <div className="bg-gray-800/50 rounded-lg p-3">
+                      <p className="text-xs text-gray-500">Actual Imposter</p>
+                      <p className="text-lg font-bold text-red-400">{gameResult?.imposter_nickname}</p>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="card">
