@@ -44,6 +44,8 @@ class GameService:
     async def select_word(self, game: Game, category: str | None = None, difficulty: str = "medium") -> tuple[str, str]:
         _word, _cat, _diff = word_bank.get_random_word(category or None, difficulty)
         await self._game_repo.set_word(game.id, _word, _cat)
+        game.word = _word
+        game.category = _cat
         return _word, _cat
 
     async def start_next_round(self, game: Game, imposter_ids: list[uuid.UUID] | None = None) -> Game:
