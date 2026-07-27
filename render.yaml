@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: draw-the-imposter-backend
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: draw-imposter-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: '["https://your-frontend.vercel.app"]'
+
+  - type: web
+    name: draw-the-imposter-frontend
+    env: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://draw-the-imposter-backend.onrender.com
+      - key: VITE_WS_URL
+        value: wss://draw-the-imposter-backend.onrender.com
+
+databases:
+  - name: draw-imposter-db
+    plan: free
