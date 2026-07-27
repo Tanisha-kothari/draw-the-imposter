@@ -29,12 +29,27 @@ async def lifespan(app: FastAPI):
     await engine.dispose()
 
 
+print("===== CORS DEBUG =====")
+print("settings.CORS_ORIGINS =", settings.CORS_ORIGINS)
+print("type =", type(settings.CORS_ORIGINS))
+if isinstance(settings.CORS_ORIGINS, list):
+    for i, o in enumerate(settings.CORS_ORIGINS):
+        print(f"  [{i}] {o!r} (type={type(o).__name__})")
+print("======================")
+
 app = FastAPI(
     title="Draw The Imposter API",
     description="Backend for the Draw The Imposter game",
     version="1.0.0",
     lifespan=lifespan,
 )
+
+@app.middleware("http")
+async def debug_origin(request, call_next):
+    print("ORIGIN:", request.headers.get("origin"), "METHOD:", request.method, "PATH:", request.url.path)
+    response = await call_next(request)
+    print("RESPONSE:", response.status_code)
+    return response
 
 app.add_middleware(
     CORSMiddleware,

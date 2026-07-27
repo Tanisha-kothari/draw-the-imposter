@@ -15,22 +15,50 @@ class Settings(BaseSettings):
         case_sensitive=False,
     )
 
-    # Defaults to SQLite for zero-config local dev.
-    # Set DATABASE_URL=postgresql+asyncpg://user:pass@host/db for production.
+    # Database
+    # Defaults to SQLite for local development.
+    # Override with DATABASE_URL on Render when using PostgreSQL.
     DATABASE_URL: str = "sqlite+aiosqlite:///./draw_imposter.db"
+
+    # Security
     SECRET_KEY: str = "change-me-in-production"
-    CORS_ORIGINS: List[str] = ["http://localhost:5173"]
+
+    # Default CORS origins.
+    # If CORS_ORIGINS is provided as an environment variable,
+    # it will override this list.
+    CORS_ORIGINS: List[str] = [
+        "http://localhost:5173",
+        "https://draw-the-imp-git-261c37-kotharitanishanilesh-gmailcoms-projects.vercel.app",
+    ]
+
+    # Optional Supabase configuration
     SUPABASE_URL: str | None = None
     SUPABASE_KEY: str | None = None
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def parse_cors_origins(cls, v: object) -> list[str]:
-        """Accept JSON array, single URL, comma-separated, or already a list."""
+        """
+        Accept any of the following formats:
+
+        JSON:
+        ["https://site.com","http://localhost:5173"]
+
+        Single URL:
+        https://site.com
+
+        Comma separated:
+        https://site.com,http://localhost:5173
+
+        Python list:
+        ["https://site.com", "http://localhost:5173"]
+        """
+
         if isinstance(v, list):
             return v
+
         if isinstance(v, str):
-            # Try JSON array first
+            # JSON array
             if v.startswith("["):
                 try:
                     parsed = json.loads(v)
@@ -38,18 +66,36 @@ class Settings(BaseSettings):
                         return parsed
                 except json.JSONDecodeError:
                     pass
-            # Single URL (no brackets)
-            if "://" in v or v.startswith("http"):
+
+            # Single URL
+            if v.startswith("http://") or v.startswith("https://"):
                 return [v]
-            # Comma-separated
+
+            # Comma separated
             if "," in v:
-                parts = [p.strip().strip('"').strip("'") for p in v.split(",")]
-                return [p for p in parts if p]
-            # Single bare value
+                return [
+                    item.strip().strip('"').strip("'")
+                    for item in v.split(",")
+                    if item.strip()
+                ]
+
             return [v.strip()]
-        logger.warning("Unexpected type for CORS_ORIGINS: %s — using default", type(v).__name__)
-        return ["http://localhost:5173"]
+
+        logger.warning(
+            "Unexpected CORS_ORIGINS type: %s. Falling back to defaults.",
+            type(v).__name__,
+        )
+
+        return [
+            "http://localhost:5173",
+            "https://draw-the-imp-git-261c37-kotharitanishanilesh-gmailcoms-projects.vercel.app",
+        ]
 
 
 settings = Settings()
+
+logger.info("========================================")
+logger.info("DATABASE_URL = %s", settings.DATABASE_URL)
 logger.info("CORS_ORIGINS = %s", settings.CORS_ORIGINS)
+logger.info("SECRET_KEY configured = %s", settings.SECRET_KEY != "change-me-in-production")
+logger.info("========================================")
