@@ -1,8 +1,10 @@
+import asyncio
 import json
 import logging
 import uuid
 from contextlib import asynccontextmanager
 
+from alembic.config import Config as AlembicConfig
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -20,11 +22,23 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+async def run_migrations() -> None:
+    """Run pending Alembic migrations on startup (off the event loop)."""
+    cfg = AlembicConfig("alembic.ini")
+    cfg.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+    loop = asyncio.get_running_loop()
+
+    def _upgrade():
+        from alembic import command
+        command.upgrade(cfg, "head")
+
+    await loop.run_in_executor(None, _upgrade)
+    logger.info("Database migrations complete")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    logger.info("Database tables created")
+    await run_migrations()
     yield
     await engine.dispose()
 
