@@ -520,6 +520,9 @@ class MessageHandler:
         round_category = round_record.category if round_record else None
         round_word = round_record.word if round_record else None
         persisted_imposter_id = round_record.imposter_id if round_record else None
+        logger.info("[RESULT_DEBUG] round=%s game_id=%s round_record_exists=%s round_category=%s round_word=%s round_imposter_id=%s",
+                    fresh_game.current_round, fresh_game.id, round_record is not None,
+                    round_category, round_word, persisted_imposter_id)
 
         results = await self._vote_service.get_vote_results(fresh_game.id, round_number=fresh_game.current_round)
         logger.info("[RESULT] Vote results for %s: %s", room_code, results)
@@ -536,6 +539,20 @@ class MessageHandler:
             imposter = next((p for p in players if p.is_imposter), None)
         imposter_id_str = str(imposter.id) if imposter else ""
         imposter_nickname_str = imposter.nickname if imposter else "Unknown"
+
+        # Log final round vs non-final round distinction
+        room = await self._room_repo.get_by_id(fresh_game.room_id)
+        is_final = fresh_game.current_round >= room.num_rounds if room else False
+        logger.info("[RESULT_DEBUG] is_final=%s round=%d/%d found_imposter=%s imposter_nick=%s",
+                    is_final, fresh_game.current_round, room.num_rounds if room else 0,
+                    imposter_id_str, imposter_nickname_str)
+        # For final round: log all player is_imposter flags for verification
+        if is_final:
+            for p in players:
+                logger.info("[RESULT_DEBUG_FINAL] player=%s is_imposter=%s nickname=%s",
+                            p.id, p.is_imposter, p.nickname)
+            logger.info("[RESULT_DEBUG_FINAL] persisted_imposter_id=%s fallback=%s",
+                        persisted_imposter_id, not bool(persisted_imposter_id))
 
         scores = [
             {"player_id": str(p.id), "nickname": p.nickname, "score": p.score}
