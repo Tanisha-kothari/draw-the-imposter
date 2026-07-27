@@ -46,9 +46,23 @@ app = FastAPI(
 
 @app.middleware("http")
 async def debug_origin(request, call_next):
-    print("ORIGIN:", request.headers.get("origin"), "METHOD:", request.method, "PATH:", request.url.path)
+    origin = request.headers.get("origin")
+    method = request.method
+    path = request.url.path
+    acrm = request.headers.get("access-control-request-method")
+    acrh = request.headers.get("access-control-request-headers")
+
+    print(f"[CORS] {method} {path}")
+    print(f"  Origin: {origin}")
+    print(f"  Access-Control-Request-Method: {acrm}")
+    print(f"  Access-Control-Request-Headers: {acrh}")
+    print(f"  Allowed origins: {settings.CORS_ORIGINS}")
+    if origin and isinstance(settings.CORS_ORIGINS, list):
+        print(f"  Origin matches allowed? {origin in settings.CORS_ORIGINS}")
+
     response = await call_next(request)
-    print("RESPONSE:", response.status_code)
+    print(f"  Response status: {response.status_code}")
+    print(f"  Response ACAO: {response.headers.get('access-control-allow-origin')}")
     return response
 
 app.add_middleware(

@@ -41,7 +41,7 @@ Push the repo, then in Render → **Blueprint** → connect repo. Render will au
 |-----------------|-----------------------------------------------------------------------|
 | `DATABASE_URL`  | `postgresql+asyncpg://user:pass@host:5432/draw_imposter_db` (from step 1) |
 | `SECRET_KEY`    | Click **Generate**                                                    |
-| `CORS_ORIGINS`  | `["https://draw-the-imp-git-261c37-kotharitanishanilesh-gmailcoms-projects.vercel.app","http://localhost:5173"]` |
+| `CORS_ORIGINS`  | `["http://localhost:5173","https://draw-the-imp-git-261c37-kotharitanishanilesh-gmailcoms-projects.vercel.app","https://draw-the-imposter-4yyit4g7j.vercel.app","https://draw-the-imposter-as510yw2c.vercel.app"]` |
 | `PYTHON_VERSION`| `3.12.0`                                                              |
 
 5. Choose **Free** plan → **Create Web Service**
@@ -72,12 +72,16 @@ Push the repo, then in Render → **Blueprint** → connect repo. Render will au
 
 ## 4. Update CORS for production
 
-The frontend URL is `https://draw-the-imp-git-261c37-kotharitanishanilesh-gmailcoms-projects.vercel.app`.  
-CORS is already configured in `render.yaml` to allow both this origin and `http://localhost:5173`.  
+The frontend URLs are:
+- `https://draw-the-imp-git-261c37-kotharitanishanilesh-gmailcoms-projects.vercel.app`
+- `https://draw-the-imposter-4yyit4g7j.vercel.app`
+- `https://draw-the-imposter-as510yw2c.vercel.app`
+
+CORS is already configured in `render.yaml` and `config.py` to allow all of these plus `http://localhost:5173`.  
 If you need to update it manually on Render:
 
 1. Go to Render → Backend service → **Environment Variables**
-2. Update `CORS_ORIGINS` to: `["https://draw-the-imp-git-261c37-kotharitanishanilesh-gmailcoms-projects.vercel.app","http://localhost:5173"]`
+2. Update `CORS_ORIGINS` to: `["http://localhost:5173","https://draw-the-imp-git-261c37-kotharitanishanilesh-gmailcoms-projects.vercel.app","https://draw-the-imposter-4yyit4g7j.vercel.app","https://draw-the-imposter-as510yw2c.vercel.app"]`
 3. Click **Save Changes** → wait for redeploy
 
 ---
@@ -101,7 +105,10 @@ alembic upgrade head
 ## 6. Verify deployment
 
 1. Visit `https://draw-the-imposter-backend.onrender.com/health` — should return `{"status":"ok"}`
-2. Visit `https://draw-the-imp-git-261c37-kotharitanishanilesh-gmailcoms-projects.vercel.app` — app should load
+2. Visit any of the deployed frontend URLs — app should load:
+   - `https://draw-the-imp-git-261c37-kotharitanishanilesh-gmailcoms-projects.vercel.app`
+   - `https://draw-the-imposter-4yyit4g7j.vercel.app`
+   - `https://draw-the-imposter-as510yw2c.vercel.app`
 3. Create a room, join, play a round
 
 ---

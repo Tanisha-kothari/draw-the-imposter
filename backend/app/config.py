@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     CORS_ORIGINS: List[str] = [
         "http://localhost:5173",
         "https://draw-the-imp-git-261c37-kotharitanishanilesh-gmailcoms-projects.vercel.app",
+        "https://draw-the-imposter-4yyit4g7j.vercel.app",
+        "https://draw-the-imposter-as510yw2c.vercel.app",
     ]
 
     # Optional Supabase configuration
@@ -89,6 +91,8 @@ class Settings(BaseSettings):
         return [
             "http://localhost:5173",
             "https://draw-the-imp-git-261c37-kotharitanishanilesh-gmailcoms-projects.vercel.app",
+            "https://draw-the-imposter-4yyit4g7j.vercel.app",
+            "https://draw-the-imposter-as510yw2c.vercel.app",
         ]
 
 

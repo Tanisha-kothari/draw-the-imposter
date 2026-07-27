@@ -14,7 +14,7 @@ services:
       - key: SECRET_KEY
         generateValue: true
       - key: CORS_ORIGINS
-        value: '["https://draw-the-imp-git-261c37-kotharitanishanilesh-gmailcoms-projects.vercel.app","http://localhost:5173"]'
+        value: '["http://localhost:5173","https://draw-the-imp-git-261c37-kotharitanishanilesh-gmailcoms-projects.vercel.app","https://draw-the-imposter-4yyit4g7j.vercel.app","https://draw-the-imposter-as510yw2c.vercel.app"]'
       - key: PYTHON_VERSION
         value: "3.12.0"
 
