@@ -161,8 +161,11 @@ export function useWebSocket(roomCode: string | null, playerId: string | null) {
       case 'notification':
         addToast(data.message as string, 'info');
         break;
+      case 'player_kicked':
+        addToast(`${data.nickname as string} was removed by the host.`, 'info');
+        break;
       case 'kick':
-        addToast('You were kicked from the room', 'error');
+        addToast((data.message as string) || 'You were removed from the room.', 'error');
         window.location.href = '/';
         break;
     }

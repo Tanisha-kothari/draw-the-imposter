@@ -27,6 +27,7 @@ export default function Room() {
   const [showSettings, setShowSettings] = useState(false);
   const [localSettings, setLocalSettings] = useState(settings);
   const [copied, setCopied] = useState(false);
+  const [confirmKick, setConfirmKick] = useState<{ id: string; nickname: string } | null>(null);
 
   useEffect(() => {
     if (!code || !playerId) {
@@ -62,6 +63,7 @@ export default function Room() {
 
   const handleKick = useCallback((targetId: string) => {
     sendMessage('kick_player', { player_id: targetId });
+    setConfirmKick(null);
   }, [sendMessage]);
 
   const handleCopyCode = () => {
@@ -148,7 +150,7 @@ export default function Room() {
                       )}
                       {isHost && player.id !== playerId && (
                         <button
-                          onClick={() => handleKick(player.id)}
+                          onClick={() => setConfirmKick({ id: player.id, nickname: player.nickname })}
                           className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-600/20 rounded-lg transition-all"
                           title="Kick"
                         >
@@ -238,6 +240,18 @@ export default function Room() {
               <div className="flex gap-3 pt-2">
                 <Button variant="secondary" className="flex-1" onClick={() => setShowSettings(false)}>Cancel</Button>
                 <Button className="flex-1" onClick={handleSaveSettings}>Save</Button>
+              </div>
+            </div>
+          )}
+        </Modal>
+
+        <Modal isOpen={confirmKick !== null} onClose={() => setConfirmKick(null)} title="Kick Player" size="sm">
+          {confirmKick && (
+            <div className="space-y-4">
+              <p className="text-gray-300">Remove <span className="font-semibold text-white">{confirmKick.nickname}</span> from the room?</p>
+              <div className="flex gap-3 pt-2">
+                <Button variant="secondary" className="flex-1" onClick={() => setConfirmKick(null)}>Cancel</Button>
+                <Button className="flex-1" onClick={() => handleKick(confirmKick.id)}>Remove</Button>
               </div>
             </div>
           )}

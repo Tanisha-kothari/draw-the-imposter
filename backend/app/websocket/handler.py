@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import random
 from typing import Any
 
 import uuid
@@ -238,6 +239,7 @@ class MessageHandler:
 
         players_updated = await self._player_repo.get_by_room(room.id)
         turn_order = [str(p.id) for p in players_updated if p.is_connected]
+        random.shuffle(turn_order)
         self._turn_order[room_code] = turn_order
         self._current_turn_idx[room_code] = 0
 
@@ -328,7 +330,6 @@ class MessageHandler:
                     len(drawings), len(combined_strokes), len(drawings), room_code)
 
         shuffled = list(drawings)
-        import random
         random.shuffle(shuffled)
         for i, d in enumerate(shuffled):
             d["player_number"] = i + 1
@@ -746,18 +747,45 @@ class MessageHandler:
         if not target_id:
             raise ValueError("player_id is required")
 
+        if target_id == player_id:
+            raise ValueError("The host cannot kick themselves")
+
         target = await self._player_repo.get_by_id(uuid.UUID(target_id))
         if not target:
             raise ValueError("Player not found")
 
-        await self._player_repo.kick(uuid.UUID(target_id))
-        self.manager.disconnect(room_code, target_id)
+        # Cannot kick after the game has started
+        game = await self._game_repo.get_by_room(player.room_id)
+        if game and game.current_phase and game.current_phase != "lobby":
+            raise ValueError("Cannot kick players after the game has started")
 
-        logger.info("[KICK] Player %s kicked by %s from %s", target_id, player_id, room_code)
+        target_nickname = target.nickname
 
+        # Send kick message BEFORE disconnecting (so it actually reaches them)
         await self.manager.send_to_player(
             room_code, target_id,
-            {"type": "kick", "data": {"message": "You were kicked from the room"}},
+            {"type": "kick", "data": {"message": "You were removed from the room by the host."}},
+        )
+
+        # Remove from database
+        await self._player_repo.kick(uuid.UUID(target_id))
+
+        # Close their WebSocket connection cleanly
+        ws = self.manager.active_connections.get(room_code, {}).get(target_id)
+        if ws:
+            try:
+                await ws.close(code=1000)
+            except Exception:
+                pass
+        self.manager.disconnect(room_code, target_id)
+
+        logger.info("[KICK] Player %s (%s) kicked by %s from %s", target_id, target_nickname, player_id, room_code)
+
+        # Notify remaining players who was kicked
+        await self.manager.broadcast_to_room(
+            room_code,
+            {"type": "player_kicked", "data": {"player_id": target_id, "nickname": target_nickname}},
+            exclude=[target_id],
         )
 
         room = await self._room_repo.get_by_code(room_code)
@@ -793,6 +821,7 @@ class MessageHandler:
         game = await self._game_service.start_next_round(game, imposter_ids)
 
         turn_order = [str(p.id) for p in players_updated if p.is_connected]
+        random.shuffle(turn_order)
         self._turn_order[room_code] = turn_order
         self._current_turn_idx[room_code] = 0
 
