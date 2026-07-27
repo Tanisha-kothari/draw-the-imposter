@@ -520,9 +520,9 @@ class MessageHandler:
         round_category = round_record.category if round_record else None
         round_word = round_record.word if round_record else None
         persisted_imposter_id = round_record.imposter_id if round_record else None
-        logger.info("[RESULT_DEBUG] round=%s game_id=%s round_record_exists=%s round_category=%s round_word=%s round_imposter_id=%s",
-                    fresh_game.current_round, fresh_game.id, round_record is not None,
-                    round_category, round_word, persisted_imposter_id)
+        logger.info("[RESULT] round=%d game=%s imposter_id=%s word='%s' category='%s'",
+                    fresh_game.current_round, fresh_game.id, persisted_imposter_id,
+                    round_word, round_category)
 
         results = await self._vote_service.get_vote_results(fresh_game.id, round_number=fresh_game.current_round)
         logger.info("[RESULT] Vote results for %s: %s", room_code, results)
@@ -532,27 +532,14 @@ class MessageHandler:
 
         players = await self._player_repo.get_by_room(fresh_game.room_id)
 
-        # Authoritative imposter identity: prefer the persisted round.imposter_id, fall back to player flag
-        if persisted_imposter_id:
-            imposter = next((p for p in players if p.id == persisted_imposter_id), None)
-        else:
-            imposter = next((p for p in players if p.is_imposter), None)
-        imposter_id_str = str(imposter.id) if imposter else ""
+        # SOLE source of truth: the round.imposter_id persisted when the round started.
+        # NEVER fall back to player.is_imposter — that flag is re-assigned every round.
+        if not persisted_imposter_id:
+            logger.error("[RESULT] CRITICAL: round %d has no persisted imposter_id! game=%s",
+                         fresh_game.current_round, fresh_game.id)
+        imposter = next((p for p in players if persisted_imposter_id and p.id == persisted_imposter_id), None)
+        imposter_id_str = str(imposter.id) if imposter else str(persisted_imposter_id) if persisted_imposter_id else ""
         imposter_nickname_str = imposter.nickname if imposter else "Unknown"
-
-        # Log final round vs non-final round distinction
-        room = await self._room_repo.get_by_id(fresh_game.room_id)
-        is_final = fresh_game.current_round >= room.num_rounds if room else False
-        logger.info("[RESULT_DEBUG] is_final=%s round=%d/%d found_imposter=%s imposter_nick=%s",
-                    is_final, fresh_game.current_round, room.num_rounds if room else 0,
-                    imposter_id_str, imposter_nickname_str)
-        # For final round: log all player is_imposter flags for verification
-        if is_final:
-            for p in players:
-                logger.info("[RESULT_DEBUG_FINAL] player=%s is_imposter=%s nickname=%s",
-                            p.id, p.is_imposter, p.nickname)
-            logger.info("[RESULT_DEBUG_FINAL] persisted_imposter_id=%s fallback=%s",
-                        persisted_imposter_id, not bool(persisted_imposter_id))
 
         scores = [
             {"player_id": str(p.id), "nickname": p.nickname, "score": p.score}
@@ -610,6 +597,7 @@ class MessageHandler:
                     fresh_game.current_round, room.num_rounds, room_code, game_result.get("winner"))
         if fresh_game.current_round >= room.num_rounds:
             await self._game_repo.end_game(fresh_game.id)
+            self._game_service.clear_word_history(fresh_game.id)
             logger.info("[GAME_OVER] Final round completed in %s", room_code)
             await asyncio.sleep(2)
             await self._broadcast_game_state(
@@ -711,6 +699,8 @@ class MessageHandler:
                             result = {"action": "none"}
                         if result.get("action") == "end_game":
                             logger.info("[GAME] Ending game in %s — not enough players after disconnect timeout", room_code)
+                            if game:
+                                self._game_service.clear_word_history(game.id)
                             await self.manager.broadcast_to_room(
                                 room_code,
                                 {"type": "game_over", "data": {"reason": "not_enough_players"}},
@@ -861,6 +851,11 @@ class MessageHandler:
         room = await self._room_repo.get_by_code(room_code)
         if not room:
             raise ValueError("Room not found")
+
+        # Clear the old game's word history to allow full reuse in the new game
+        game = await self._game_repo.get_by_room(room.id)
+        if game:
+            self._game_service.clear_word_history(game.id)
 
         await self._room_repo.update_status(room.id, "waiting")
         players = await self._player_repo.get_by_room(room.id)

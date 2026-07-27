@@ -1,3 +1,4 @@
+import logging
 import random
 import uuid
 
@@ -17,6 +18,8 @@ class GameService:
         self._game_repo = GameRepository()
         self._player_repo = PlayerRepository()
         self._room_repo = RoomRepository()
+        # Per-game used-word history to prevent immediate repetition
+        self._used_words: dict[uuid.UUID, set[str]] = {}
 
     async def create_game(self, room: Room) -> Game:
         game = await self._game_repo.create(
@@ -42,7 +45,9 @@ class GameService:
         return updated
 
     async def select_word(self, game: Game, category: str | None = None, difficulty: str = "medium") -> tuple[str, str]:
-        _word, _cat, _diff = word_bank.get_random_word(category or None, difficulty)
+        used = self._used_words.get(game.id)
+        _word, _cat, _diff = word_bank.get_random_word(category or None, difficulty, exclude=used)
+        self._used_words.setdefault(game.id, set()).add(_word)
         await self._game_repo.set_word(game.id, _word, _cat)
         game.word = _word
         game.category = _cat
@@ -53,10 +58,17 @@ class GameService:
         word = game.word or ""
         category = getattr(game, 'category', None) or ""
         primary_imposter_id = imposter_ids[0] if imposter_ids else None
+        if not imposter_ids and game.current_round >= 0:
+            logger = logging.getLogger(__name__)
+            logger.warning("[ROUND] start_next_round round=%d: no imposter_ids provided", next_round)
         await self._game_repo.update_round(game.id, next_round, word)
         await self._game_repo.create_round(game.id, next_round, word, GamePhase.DRAWING.value, category=category, imposter_id=primary_imposter_id)
         updated = await self._game_repo.update_phase(game.id, GamePhase.DRAWING.value)
         return updated or game
+
+    def clear_word_history(self, game_id: uuid.UUID) -> None:
+        """Clear the used-word history for a game (called on game end / play again)."""
+        self._used_words.pop(game_id, None)
 
     async def calculate_results(self, game: Game) -> dict:
         from app.repositories.vote_repository import VoteRepository
