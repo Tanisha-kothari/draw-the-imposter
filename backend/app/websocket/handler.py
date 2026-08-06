@@ -470,8 +470,25 @@ class MessageHandler:
 
         # Broadcast updated vote counts so clients see progress
         votes_in = await self._vote_service.get_current_round_vote_count(game.id)
-        active_count = await self._vote_service.get_active_player_count(game.id)
-        logger.info("[VOTE] Votes: %d / %d in %s", votes_in, active_count, room_code)
+
+        # Count ACTUAL live WebSocket connections as the expected voters.  A player whose
+        # socket silently died (e.g. tab closed / network drop) is only pruned from memory
+        # during a broadcast — their `is_connected` flag in the DB is NOT cleared, so relying
+        # on `is_connected` alone would wait forever on a ghost player.
+        room_players = await self._player_repo.get_by_room(player.room_id)
+        live_connections = set(self.manager.active_connections.get(room_code, {}).keys())
+        active_count = (
+            len(live_connections)
+            if live_connections
+            else await self._vote_service.get_active_player_count(game.id)
+        )
+
+        # Diagnostics — log the requested fields after every vote
+        logger.info(
+            "[VOTE_DEBUG] room=%s round=%d player=%s voted_for=%s total_players=%d votes_received=%d players_expected=%d",
+            player.room_id, game.current_round, player_id, target_id,
+            len(room_players), votes_in, active_count,
+        )
 
         await self.manager.broadcast_to_room(
             room_code,
@@ -489,9 +506,12 @@ class MessageHandler:
             {"type": "vote_confirmed", "data": {"success": True}},
         )
 
-        everyone_voted = await self._vote_service.has_everyone_voted(game.id)
+        # Advance IMMEDIATELY when every ACTIVE (live-connected) player has voted.
+        everyone_voted = await self._vote_service.has_everyone_voted(game.id, expected_voters=active_count)
+        logger.info("[VOTE] everyone_voted=%s (votes=%d, expected=%d) in %s",
+                    everyone_voted, votes_in, active_count, room_code)
         if everyone_voted:
-            logger.info("[VOTE] Voting complete — all %d players voted in %s", active_count, room_code)
+            logger.info("[VOTE] Voting complete — all %d expected players voted in %s", active_count, room_code)
             # Refresh game from DB to get the latest state
             fresh_game = await self._game_repo.get_by_id(game.id)
             if fresh_game:

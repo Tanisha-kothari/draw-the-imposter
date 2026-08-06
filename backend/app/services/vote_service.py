@@ -72,14 +72,12 @@ class VoteService:
             "max_votes": max_votes,
         }
 
-    async def has_everyone_voted(self, game_id: uuid.UUID) -> bool:
+    async def has_everyone_voted(self, game_id: uuid.UUID, expected_voters: int | None = None) -> bool:
         from sqlalchemy import select
 
         game = await self._game_repo.get_by_id(game_id)
         if not game:
             return False
-
-        players = await self._player_repo.get_by_room(game.room_id)
 
         async with async_session_factory() as session:
             result = await session.execute(
@@ -91,6 +89,10 @@ class VoteService:
             votes = result.scalars().all()
 
         voted_ids = {str(v.voter_id) for v in votes}
+        if expected_voters is not None:
+            return len(voted_ids) >= expected_voters
+
+        players = await self._player_repo.get_by_room(game.room_id)
         active_players = [p for p in players if p.is_connected]
 
         return len(voted_ids) >= len(active_players)
